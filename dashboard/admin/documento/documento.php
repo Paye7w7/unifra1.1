@@ -21,6 +21,7 @@ if ($action === 'toggle_all' && $tipo_area) {
     header("Location: documento.php?action=list&tipo_area=$tipo_area");
     exit();
 }
+
 // Procesar acciones POST
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'save') {
     // Recoger datos del formulario (sin fecha_resolucion)
@@ -121,11 +122,10 @@ if (($action === 'edit' || $action === 'create') && !isset($_POST['id'])) {
 // Obtener listado de documentos
 if ($action === 'list') {
     $query = "SELECT d.*, u.nombres, u.apellidos, c.nombre AS categoria, 
-                     cr.nombre AS criterio, t.nombre AS tipo_area, t.id AS tipo_area_id
+                     t.nombre AS tipo_area, t.id AS tipo_area_id
               FROM documentos d
               JOIN usuario u ON d.usuario_id = u.id
               JOIN categorias c ON d.categoria_id = c.id
-              JOIN criterio cr ON c.criterio_id = cr.id
               JOIN tipo_area t ON c.tipo_area_id = t.id";
 
     if ($tipo_area) {
@@ -167,7 +167,6 @@ if ($action === 'list') {
     <link href="https://fonts.googleapis.com/css2?family=Archivo+Black&display=swap" rel="stylesheet">
     <script src="https://kit.fontawesome.com/7c61ac1c1a.js" crossorigin="anonymous"></script>
     <link rel="stylesheet" href="../../../../assets/css/criterio.css">
-
 </head>
 
 <body>
@@ -208,6 +207,10 @@ if ($action === 'list') {
             <section class="card">
                 <h2 class="section-title">
                     <i class="fas fa-filter"></i> Filtros y Acciones
+
+                    <a href="createdoc.php" class="btn btn-primary" style="margin-left: 10px;">
+                        <i class="fas fa-plus-circle"></i> Crear documentos
+                    </a>
                 </h2>
 
                 <div class="filter-actions">
@@ -271,9 +274,8 @@ if ($action === 'list') {
                                 <th>Codigo</th>
                                 <th>Título</th>
                                 <th>Categoría</th>
-                                <th>Criterio</th>
-                                <th>Formato</th>
                                 <th>Tipo de Área</th>
+                                <th>Formato</th>
                                 <th>Estado</th>
                                 <th>Acciones</th>
                             </tr>
@@ -281,7 +283,7 @@ if ($action === 'list') {
                         <tbody>
                             <?php if ($documentos->num_rows === 0): ?>
                                 <tr>
-                                    <td colspan="8" class="text-center">No hay documentos registrados</td>
+                                    <td colspan="7" class="text-center">No hay documentos registrados</td>
                                 </tr>
                             <?php else: ?>
                                 <?php while ($doc = $documentos->fetch_assoc()): ?>
@@ -289,9 +291,8 @@ if ($action === 'list') {
                                         <td><?= htmlspecialchars($doc['codigo_documento']) ?></td>
                                         <td><?= htmlspecialchars($doc['titulo']) ?></td>
                                         <td><?= htmlspecialchars($doc['categoria']) ?></td>
-                                        <td><?= htmlspecialchars($doc['criterio']) ?></td>
-                                        <td><?= htmlspecialchars($doc['formato']) ?></td>
                                         <td><?= htmlspecialchars($doc['tipo_area']) ?></td>
+                                        <td><?= htmlspecialchars($doc['formato']) ?></td>
                                         <td>
                                             <span class="status-badge <?= $doc['activo'] ? 'status-active' : 'status-inactive' ?>">
                                                 <?= $doc['activo'] ? 'Activo' : 'Inactivo' ?>
@@ -426,6 +427,7 @@ if ($action === 'list') {
             </div>
         </div>
     </footer>
+
     <!-- Modal para ver detalles del documento -->
     <div id="documentModal" class="modal">
         <div class="modal-content">
@@ -436,6 +438,7 @@ if ($action === 'list') {
             </div>
         </div>
     </div>
+
     <script>
         // Funciones para el modal de visualización
         const modal = document.getElementById('documentModal');
@@ -464,71 +467,66 @@ if ($action === 'list') {
 
             // Construir el HTML con todos los detalles en formato de grid
             detailsContainer.innerHTML = `
-            <dl>
+                <dl>
+                    <dt>Código:</dt>
+                    <dd>${doc.codigo_documento || 'No especificado'}</dd>
+                    
+                    <dt>Título:</dt>
+                    <dd>${doc.titulo}</dd>
+                    
+                    <dt>Descripción:</dt>
+                    <dd>${doc.descripcion || 'No especificada'}</dd>
+                    
+                    <dt>Formato:</dt>
+                    <dd>${doc.formato}</dd>
+                    
+                    <dt>Categoría:</dt>
+                    <dd>${doc.categoria}</dd>
+                    
+                    <dt>Tipo de Área:</dt>
+                    <dd>${doc.tipo_area}</dd>
+                    
+                    <dt>Responsable:</dt>
+                    <dd>${doc.nombres} ${doc.apellidos}</dd>
+                    
+                    <dt>Enlace:</dt>
+                    <dd>${
+                        doc.link_documento 
+                        ? `<a href="${doc.link_documento}" target="_blank" rel="noopener">${doc.link_documento}</a>`
+                        : 'No especificado'
+                    }</dd>
+                    
+                    <dt>Estado:</dt>
+                    <dd>${statusBadge}</dd>
+                    
+                    <dt>Creado:</dt>
+                    <dd>${formatDate(doc.fecha_creacion)}</dd>
+                    
+                    <dt>Modificado:</dt>
+                    <dd>${formatDate(doc.fecha_modificacion)}</dd>
+                    
+                    <dt>Resolución:</dt>
+                    <dd>${formatDate(doc.fecha_resolucion)}</dd>
+                </dl>
                 
-                
-                <dt>Código:</dt>
-                <dd>${doc.codigo_documento || 'No especificado'}</dd>
-                
-                <dt>Título:</dt>
-                <dd>${doc.titulo}</dd>
-                
-                <dt>Descripción:</dt>
-                <dd>${doc.descripcion || 'No especificada'}</dd>
-                
-                <dt>Formato:</dt>
-                <dd>${doc.formato}</dd>
-                
-                <dt>Categoría:</dt>
-                <dd>${doc.categoria}</dd>
-                
-                <dt>Criterio:</dt>
-                <dd>${doc.criterio}</dd>
-                
-                <dt>Tipo de Área:</dt>
-                <dd>${doc.tipo_area}</dd>
-                
-                <dt>Responsable:</dt>
-                <dd>${doc.nombres} ${doc.apellidos}</dd>
-                
-                <dt>Enlace:</dt>
-                <dd>${
-                    doc.link_documento 
-                    ? `<a href="${doc.link_documento}" target="_blank" rel="noopener">${doc.link_documento}</a>`
-                    : 'No especificado'
-                }</dd>
-                
-                <dt>Estado:</dt>
-                <dd>${statusBadge}</dd>
-                
-                <dt>Creado:</dt>
-                <dd>${formatDate(doc.fecha_creacion)}</dd>
-                
-                <dt>Modificado:</dt>
-                <dd>${formatDate(doc.fecha_modificacion)}</dd>
-                
-                <dt>Resolución:</dt>
-                <dd>${formatDate(doc.fecha_resolucion)}</dd>
-            </dl>
-            
-            <style>
-                #documentDetails dl {
-                    display: grid;
-                    grid-template-columns: 150px 1fr;
-                    gap: 10px;
-                }
-                
-                #documentDetails dt {
-                    font-weight: 600;
-                    color: #555;
-                }
-                
-                #documentDetails dd {
-                    margin: 0;
-                    padding: 5px 0;
-                }
-            </style>
-        `;
+                <style>
+                    #documentDetails dl {
+                        display: grid;
+                        grid-template-columns: 150px 1fr;
+                        gap: 10px;
+                    }
+                    
+                    #documentDetails dt {
+                        font-weight: 600;
+                        color: #555;
+                    }
+                    
+                    #documentDetails dd {
+                        margin: 0;
+                        padding: 5px 0;
+                    }
+                </style>
+            `;
 
             modal.style.display = 'block';
         }

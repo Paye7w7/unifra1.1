@@ -10,9 +10,8 @@ $codigoSeleccionado = isset($_GET['codigo']) ? $_GET['codigo'] : null;
 $busqueda = isset($_GET['buscador']) ? trim($_GET['buscador']) : null;
 
 // Consulta base
-$sql = "SELECT c.id, c.nombre AS categoria, cr.nombre AS criterio
+$sql = "SELECT c.id, c.nombre AS categoria, 'Documentación Académica' AS dimension
         FROM categorias c
-        LEFT JOIN criterio cr ON c.criterio_id = cr.id
         WHERE c.activo = 1 AND c.dimensiones_id = 2";
 
 // Array para condiciones adicionales
@@ -34,7 +33,6 @@ if ($codigoSeleccionado) {
 if ($busqueda) {
     $busquedaEscapada = $conexion->real_escape_string($busqueda);
     $conditions[] = "(c.nombre LIKE '%$busquedaEscapada%' 
-                     OR cr.nombre LIKE '%$busquedaEscapada%'
                      OR EXISTS (
                          SELECT 1 FROM documentos d 
                          WHERE d.categoria_id = c.id 

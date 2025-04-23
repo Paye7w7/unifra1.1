@@ -144,37 +144,39 @@ if ($categoriaId) {
             color: #6c757d;
             padding: 0 8px;
         }
+
+        
     </style>
 </head>
 
 <body>
-    
+
 
     <div class="container">
         <!-- Breadcrumbs dinámicos -->
-    <div class="breadcrumbs-container">
-        <nav aria-label="Ruta de navegación">
-            <ol class="breadcrumbs">
-                <li class="breadcrumb-item">
-                    <a href="/dashboard/dimensiones/dimensiones.php">Dimensiones</a>
-                </li>
-                <li class="breadcrumb-separator">/</li>
-                <?php if ($categoriaId && isset($nombreDimension)): ?>
+        <div class="breadcrumbs-container">
+            <nav aria-label="Ruta de navegación">
+                <ol class="breadcrumbs">
                     <li class="breadcrumb-item">
-                        <?= $nombreDimension ?> <!-- Eliminado el enlace <a> -->
+                        <a href="/dashboard/dimensiones/dimensiones.php">Dimensiones</a>
                     </li>
                     <li class="breadcrumb-separator">/</li>
-                    <li class="breadcrumb-item active" aria-current="page">
-                        <?= $nombreCategoria ?>
-                    </li>
-                <?php else: ?>
-                    <li class="breadcrumb-item active" aria-current="page">
-                        Documentos
-                    </li>
-                <?php endif; ?>
-            </ol>
-        </nav>
-    </div>
+                    <?php if ($categoriaId && isset($nombreDimension)): ?>
+                        <li class="breadcrumb-item">
+                            <?= $nombreDimension ?> <!-- Eliminado el enlace <a> -->
+                        </li>
+                        <li class="breadcrumb-separator">/</li>
+                        <li class="breadcrumb-item active" aria-current="page">
+                            <?= $nombreCategoria ?>
+                        </li>
+                    <?php else: ?>
+                        <li class="breadcrumb-item active" aria-current="page">
+                            Documentos
+                        </li>
+                    <?php endif; ?>
+                </ol>
+            </nav>
+        </div>
         <div class="TITULOYHERRAMIENTAS">
             <div class="titulo-con-linea">
                 <h1><?= $nombreDimension ?></h1>
@@ -202,28 +204,38 @@ if ($categoriaId) {
         <h2>Categoría: <?= $nombreCategoria ?></h2>
 
         <?php if ($resultadoDocumentos->num_rows > 0): ?>
-            <div class="cards-container">
-                <?php while ($doc = $resultadoDocumentos->fetch_assoc()): ?>
-                    <a href="<?= htmlspecialchars($doc['link_documento']) ?>" target="_blank" class="card <?= $colorDimension ?>">
-                        <div class="card-content">
-                            <h3><?= htmlspecialchars($doc['titulo']) ?></h3>
-                            <p><?= htmlspecialchars($doc['descripcion']) ?></p>
-                            <p style="font-family: Archivo Black, sans-serif;"><?= htmlspecialchars($doc['dimension_nombre']) ?></p>
-                            <p><strong>Categoría:</strong> <?= htmlspecialchars($doc['categoria_nombre']) ?></p>
-                            <p><strong>Código:</strong> <span class="codigo"><?= htmlspecialchars($doc['codigo_documento']) ?></span></p>
-                            <p><strong>Formato:</strong> <?= htmlspecialchars($doc['formato']) ?></p>
-                        </div>
-                        <div class="card-icon">
-                            <i class="fas fa-file-alt"></i>
-                        </div>
-                    </a>
-                <?php endwhile; ?>
+    <div class="cards-container">
+        <?php while ($doc = $resultadoDocumentos->fetch_assoc()): ?>
+            <?php
+            // Determinar el enlace a abrir
+            $enlace = '';
+            if (!empty($doc['ruta_archivo'])) {
+                $enlace = '/' . ltrim($doc['ruta_archivo'], '/');
+            } elseif (!empty($doc['link_documento'])) {
+                $enlace = $doc['link_documento'];
+            }
+            ?>
+            
+            <div class="card <?= $colorDimension ?>" <?= $enlace ? 'onclick="window.open(\''.htmlspecialchars($enlace).'\', \'_blank\')" style="cursor: pointer;"' : '' ?>>
+                <div class="card-content">
+                    <h3><?= htmlspecialchars($doc['titulo']) ?></h3>
+                    <p><?= htmlspecialchars($doc['descripcion']) ?></p>
+                    <p style="font-family: Archivo Black, sans-serif;"><?= htmlspecialchars($doc['dimension_nombre']) ?></p>
+                    <p><strong>Categoría:</strong> <?= htmlspecialchars($doc['categoria_nombre']) ?></p>
+                    <p><strong>Código:</strong> <span class="codigo"><?= htmlspecialchars($doc['codigo_documento']) ?></span></p>
+                    <p><strong>Formato:</strong> <?= htmlspecialchars($doc['formato']) ?></p>
+                </div>
+                <div class="card-icon">
+                    <i class="fas fa-file-alt"></i>
+                </div>
             </div>
-        <?php else: ?>
-            <div class="no-results">
-                No se encontraron documentos.
-            </div>
-        <?php endif; ?>
+        <?php endwhile; ?>
+    </div>
+<?php else: ?>
+    <div class="no-results">
+        No se encontraron documentos.
+    </div>
+<?php endif; ?>
     </div>
 
     <script>

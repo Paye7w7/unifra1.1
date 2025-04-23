@@ -1,7 +1,22 @@
 <?php
 require '../../../../includes/conexion.php';
 $conn = obtenerConexion();
+// Parámetros adicionales para filtrado
+$filtro_tipo_area = isset($_GET['filtro_tipo_area']) ? (int)$_GET['filtro_tipo_area'] : null;
 
+// LISTADO DE CATEGORÍAS (modificar esta parte)
+$sql = "SELECT c.id, c.nombre, c.activo, d.nombres AS dimension, t.nombre AS tipo_area
+        FROM categorias c
+        JOIN dimensiones d ON c.dimensiones_id = d.id
+        JOIN tipo_area t ON c.tipo_area_id = t.id";
+
+// Aplicar filtro si está seleccionado
+if ($filtro_tipo_area) {
+    $sql .= " WHERE c.tipo_area_id = $filtro_tipo_area";
+}
+
+$sql .= " ORDER BY c.id DESC";
+$categorias = $conn->query($sql);
 // Función para activar/desactivar todas las categorías de un tipo de área
 function toggleTipoArea($conn, $tipoAreaId, $accion)
 {
@@ -10,6 +25,20 @@ function toggleTipoArea($conn, $tipoAreaId, $accion)
     $stmt->bind_param("ii", $activo, $tipoAreaId);
     return $stmt->execute();
 }
+
+// Función para verificar estado de las categorías por tipo de área
+function checkTipoAreaStatus($conn, $tipoAreaId)
+{
+    $stmt = $conn->prepare("SELECT COUNT(*) as total, SUM(activo = 1) as activas FROM categorias WHERE tipo_area_id = ?");
+    $stmt->bind_param("i", $tipoAreaId);
+    $stmt->execute();
+    $result = $stmt->get_result();
+    return $result->fetch_assoc();
+}
+
+// Obtener estado actual
+$medicinaStatus = checkTipoAreaStatus($conn, 1); // 1 = Medicina
+$odontologiaStatus = checkTipoAreaStatus($conn, 2); // 2 = Odontologia
 
 // Manejar activación/desactivación masiva
 if (isset($_GET['accion_masiva'])) {
@@ -31,14 +60,13 @@ if ($_SERVER["REQUEST_METHOD"] === "POST") {
     $nombre = $_POST['nombre'];
     $dimensiones_id = $_POST['dimensiones_id'];
     $tipo_area_id = $_POST['tipo_area_id'];
-    $criterio_id = $_POST['criterio_id'];
 
     if ($id) {
-        $stmt = $conn->prepare("UPDATE categorias SET nombre=?, dimensiones_id=?, tipo_area_id=?, criterio_id=? WHERE id=?");
-        $stmt->bind_param("siiii", $nombre, $dimensiones_id, $tipo_area_id, $criterio_id, $id);
+        $stmt = $conn->prepare("UPDATE categorias SET nombre=?, dimensiones_id=?, tipo_area_id=? WHERE id=?");
+        $stmt->bind_param("siii", $nombre, $dimensiones_id, $tipo_area_id, $id);
     } else {
-        $stmt = $conn->prepare("INSERT INTO categorias (nombre, dimensiones_id, tipo_area_id, criterio_id, activo, created_at) VALUES (?, ?, ?, ?, 1, NOW())");
-        $stmt->bind_param("siii", $nombre, $dimensiones_id, $tipo_area_id, $criterio_id);
+        $stmt = $conn->prepare("INSERT INTO categorias (nombre, dimensiones_id, tipo_area_id, activo, created_at) VALUES (?, ?, ?, 1, NOW())");
+        $stmt->bind_param("sii", $nombre, $dimensiones_id, $tipo_area_id);
     }
 
     $stmt->execute();
@@ -62,7 +90,7 @@ if (isset($_GET['accion']) && isset($_GET['id'])) {
 
 // CARGAR CATEGORÍA PARA EDITAR
 $editando = false;
-$categoria = ['id' => '', 'nombre' => '', 'dimensiones_id' => '', 'tipo_area_id' => '', 'criterio_id' => ''];
+$categoria = ['id' => '', 'nombre' => '', 'dimensiones_id' => '', 'tipo_area_id' => ''];
 if (isset($_GET['editar'])) {
     $editando = true;
     $id = intval($_GET['editar']);
@@ -78,14 +106,12 @@ if (isset($_GET['editar'])) {
 // OBTENER DATOS PARA SELECTS
 $dimensiones = $conn->query("SELECT id, nombres FROM dimensiones WHERE activo = 1");
 $tipo_areas = $conn->query("SELECT id, nombre FROM tipo_area WHERE activo = 1");
-$criterios = $conn->query("SELECT id, nombre FROM criterio WHERE activo = 1");
 
 // LISTADO DE CATEGORÍAS
-$sql = "SELECT c.id, c.nombre, c.activo, d.nombres AS dimension, t.nombre AS tipo_area, cr.nombre AS criterio
+$sql = "SELECT c.id, c.nombre, c.activo, d.nombres AS dimension, t.nombre AS tipo_area
         FROM categorias c
         JOIN dimensiones d ON c.dimensiones_id = d.id
         JOIN tipo_area t ON c.tipo_area_id = t.id
-        JOIN criterio cr ON c.criterio_id = cr.id
         ORDER BY c.id DESC";
 $categorias = $conn->query($sql);
 ?>
@@ -146,22 +172,28 @@ $categorias = $conn->query($sql);
             <div class="mass-buttons">
                 <div class="mass-button-group">
                     <h3>Medicina</h3>
-                    <a href="categorias.php?accion_masiva=activar&tipo_area=medicina" class="btn-activar" onclick="return confirm('¿Activar TODAS las categorías de Medicina?')">
-                        <i class="fas fa-toggle-on"></i> Activar Medicina
-                    </a>
-                    <a href="categorias.php?accion_masiva=desactivar&tipo_area=medicina" class="btn-desactivar" onclick="return confirm('¿Desactivar TODAS las categorías de Medicina?')">
-                        <i class="fas fa-toggle-off"></i> Desactivar Medicina
-                    </a>
+                    <button id="toggleMedicina" class="<?= ($medicinaStatus['activas'] > 0 && $medicinaStatus['activas'] == $medicinaStatus['total']) ? 'btn-desactivar' : 'btn-activar' ?>"
+                        data-tipo-area="medicina"
+                        data-action="<?= ($medicinaStatus['activas'] > 0 && $medicinaStatus['activas'] == $medicinaStatus['total']) ? 'desactivar' : 'activar' ?>">
+                        <i class="fas fa-toggle-<?= ($medicinaStatus['activas'] > 0 && $medicinaStatus['activas'] == $medicinaStatus['total']) ? 'on' : 'off' ?>"></i>
+                        <?= ($medicinaStatus['activas'] > 0 && $medicinaStatus['activas'] == $medicinaStatus['total']) ? 'Desactivar Medicina' : 'Activar Medicina' ?>
+                    </button>
+                    <div class="status-info">
+                        <?= $medicinaStatus['activas'] ?> de <?= $medicinaStatus['total'] ?> categorías activas
+                    </div>
                 </div>
 
                 <div class="mass-button-group">
                     <h3>Odontología</h3>
-                    <a href="categorias.php?accion_masiva=activar&tipo_area=odontologia" class="btn-activar" onclick="return confirm('¿Activar TODAS las categorías de Odontología?')">
-                        <i class="fas fa-toggle-on"></i> Activar Odontología
-                    </a>
-                    <a href="categorias.php?accion_masiva=desactivar&tipo_area=odontologia" class="btn-desactivar" onclick="return confirm('¿Desactivar TODAS las categorías de Odontología?')">
-                        <i class="fas fa-toggle-off"></i> Desactivar Odontología
-                    </a>
+                    <button id="toggleOdontologia" class="<?= ($odontologiaStatus['activas'] > 0 && $odontologiaStatus['activas'] == $odontologiaStatus['total']) ? 'btn-desactivar' : 'btn-activar' ?>"
+                        data-tipo-area="odontologia"
+                        data-action="<?= ($odontologiaStatus['activas'] > 0 && $odontologiaStatus['activas'] == $odontologiaStatus['total']) ? 'desactivar' : 'activar' ?>">
+                        <i class="fas fa-toggle-<?= ($odontologiaStatus['activas'] > 0 && $odontologiaStatus['activas'] == $odontologiaStatus['total']) ? 'on' : 'off' ?>"></i>
+                        <?= ($odontologiaStatus['activas'] > 0 && $odontologiaStatus['activas'] == $odontologiaStatus['total']) ? 'Desactivar Odontología' : 'Activar Odontología' ?>
+                    </button>
+                    <div class="status-info">
+                        <?= $odontologiaStatus['activas'] ?> de <?= $odontologiaStatus['total'] ?> categorías activas
+                    </div>
                 </div>
             </div>
         </section>
@@ -203,18 +235,6 @@ $categorias = $conn->query($sql);
                     </select>
                 </div>
 
-                <div class="form-group">
-                    <label for="criterio_id">Criterio:</label>
-                    <select id="criterio_id" name="criterio_id" required>
-                        <option value="">Seleccione un criterio</option>
-                        <?php while ($row = $criterios->fetch_assoc()): ?>
-                            <option value="<?= $row['id'] ?>" <?= $row['id'] == $categoria['criterio_id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($row['nombre']) ?>
-                            </option>
-                        <?php endwhile; ?>
-                    </select>
-                </div>
-
                 <div class="form-actions">
                     <button type="submit" class="btn-primary">
                         <i class="fas fa-<?= $editando ? 'save' : 'plus' ?>"></i>
@@ -240,6 +260,15 @@ $categorias = $conn->query($sql);
                     <input type="text" id="searchInput" placeholder="Buscar categoría...">
                     <i class="fas fa-search"></i>
                 </div>
+
+                <!-- Nuevo filtro por tipo de área -->
+                <div class="filter-box">
+                    <select id="filtroTipoArea" onchange="filtrarPorTipoArea(this.value)">
+                        <option value="">Todos los tipos de área</option>
+                        <option value="1" <?= $filtro_tipo_area === 1 ? 'selected' : '' ?>>Medicina</option>
+                        <option value="2" <?= $filtro_tipo_area === 2 ? 'selected' : '' ?>>Odontología</option>
+                    </select>
+                </div>
             </div>
 
             <div class="table-container">
@@ -250,7 +279,6 @@ $categorias = $conn->query($sql);
                             <th>Nombre</th>
                             <th>Dimensión</th>
                             <th>Tipo Área</th>
-                            <th>Criterio</th>
                             <th>Estado</th>
                             <th>Acciones</th>
                         </tr>
@@ -258,7 +286,7 @@ $categorias = $conn->query($sql);
                     <tbody>
                         <?php if ($categorias->num_rows === 0): ?>
                             <tr>
-                                <td colspan="7" class="text-center">No hay categorías registradas</td>
+                                <td colspan="6" class="text-center">No hay categorías registradas</td>
                             </tr>
                         <?php else: ?>
                             <?php while ($row = $categorias->fetch_assoc()): ?>
@@ -267,7 +295,6 @@ $categorias = $conn->query($sql);
                                     <td><?= htmlspecialchars($row['nombre']) ?></td>
                                     <td><?= htmlspecialchars($row['dimension']) ?></td>
                                     <td><?= htmlspecialchars($row['tipo_area']) ?></td>
-                                    <td><?= htmlspecialchars($row['criterio']) ?></td>
                                     <td>
                                         <span class="status-badge <?= $row['activo'] ? 'status-active' : 'status-inactive' ?>">
                                             <?= $row['activo'] ? 'Activo' : 'Inactivo' ?>
@@ -295,8 +322,49 @@ $categorias = $conn->query($sql);
             </div>
         </section>
     </main>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Función para manejar el cambio de estado
+            function handleToggle(button) {
+                const tipoArea = button.dataset.tipoArea;
+                const action = button.dataset.action;
+                const areaName = tipoArea === 'medicina' ? 'Medicina' : 'Odontología';
+
+                if (confirm(`¿${action.charAt(0).toUpperCase() + action.slice(1)} TODAS las categorías de ${areaName}?`)) {
+                    // Realizar la petición al servidor
+                    window.location.href = `categorias.php?accion_masiva=${action}&tipo_area=${tipoArea}`;
+                }
+            }
+
+            // Asignar eventos
+            document.getElementById('toggleMedicina').addEventListener('click', function() {
+                handleToggle(this);
+            });
+
+            document.getElementById('toggleOdontologia').addEventListener('click', function() {
+                handleToggle(this);
+            });
+        });
+
+        /*filtro*/
+        function filtrarPorTipoArea(tipoAreaId) {
+    const url = new URL(window.location.href);
+    
+    if (tipoAreaId) {
+        url.searchParams.set('filtro_tipo_area', tipoAreaId);
+    } else {
+        url.searchParams.delete('filtro_tipo_area');
+    }
+    
+    window.location.href = url.toString();
+}
+    </script>
+
     <style>
-        /* Estilos para los nuevos botones */
+        /*filtro*/
+
+        
+        /* Estilos mejorados para los botones */
         .mass-actions {
             margin-bottom: 20px;
         }
@@ -325,18 +393,21 @@ $categorias = $conn->query($sql);
 
         .btn-activar,
         .btn-desactivar {
-            display: inline-block;
-            padding: 8px 15px;
-            margin: 5px 0;
+            display: block;
+            width: 100%;
+            padding: 10px 15px;
+            margin: 10px 0;
+            border: none;
             border-radius: 4px;
-            text-decoration: none;
             font-weight: 500;
             transition: all 0.3s;
+            cursor: pointer;
+            text-align: center;
+            color: white;
         }
 
         .btn-activar {
             background-color: #28a745;
-            color: white;
         }
 
         .btn-activar:hover {
@@ -345,11 +416,17 @@ $categorias = $conn->query($sql);
 
         .btn-desactivar {
             background-color: #dc3545;
-            color: white;
         }
 
         .btn-desactivar:hover {
             background-color: #c82333;
+        }
+
+        .status-info {
+            font-size: 0.9em;
+            color: #666;
+            text-align: center;
+            margin-top: 5px;
         }
     </style>
     <footer>

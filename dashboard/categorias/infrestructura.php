@@ -10,9 +10,8 @@ $codigoSeleccionado = isset($_GET['codigo']) ? $_GET['codigo'] : null;
 $busqueda = isset($_GET['buscador']) ? trim($_GET['buscador']) : null;
 
 // Consulta SQL base
-$sql = "SELECT c.id, c.nombre AS categoria, cr.nombre AS criterio
+$sql = "SELECT c.id, c.nombre AS categoria, 'Infraestructura' AS dimension
         FROM categorias c
-        LEFT JOIN criterio cr ON c.criterio_id = cr.id
         WHERE c.activo = 1 AND c.dimensiones_id = 4";
 
 // Array para condiciones adicionales
@@ -22,10 +21,18 @@ if ($categoriaSeleccionada) {
     $conditions[] = "c.id = " . (int)$categoriaSeleccionada;
 }
 
+if ($codigoSeleccionado) {
+    $codigoEscapado = $conexion->real_escape_string($codigoSeleccionado);
+    $conditions[] = "EXISTS (
+        SELECT 1 FROM documentos d 
+        WHERE d.categoria_id = c.id 
+        AND d.codigo_documento = '$codigoEscapado'
+    )";
+}
+
 if ($busqueda) {
     $busquedaEscapada = $conexion->real_escape_string($busqueda);
     $conditions[] = "(c.nombre LIKE '%$busquedaEscapada%' 
-                     OR cr.nombre LIKE '%$busquedaEscapada%'
                      OR EXISTS (
                          SELECT 1 FROM documentos d 
                          WHERE d.categoria_id = c.id 
@@ -66,7 +73,7 @@ $resultado_codigos = $conexion->query($sql_codigos);
 
 // Estilos e íconos
 $colorDimension = 'card-green'; // Infraestructura
-$iconos = ['fa-microscope', 'fa-vials', 'fa-dna', 'fa-flask'];
+$iconos = ['fa-building', 'fa-wifi', 'fa-laptop', 'fa-flask'];
 ?>
 <!DOCTYPE html>
 <html lang="es">
